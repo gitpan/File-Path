@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 114;
+use Test::More tests => 121;
 use Config;
 
 BEGIN {
@@ -205,7 +205,8 @@ $count = rmtree($dir, 0);
 is($count, 1, "removed directory unsafe mode");
 
 $count = rmtree($dir2, 0, 1);
-is($count, 1, "removed directory safe mode");
+my $removed = $Is_VMS ? 0 : 1;
+is($count, $removed, "removed directory safe mode");
 
 # mkdir foo ./E/../Y
 # Y should exist
@@ -299,6 +300,23 @@ if (chdir updir()) {
 }
 else {
     fail("chdir parent: $!");
+}
+
+SKIP: {
+    skip "This is not a MSWin32 platform", 1
+        unless $^O eq 'MSWin32';
+
+    my $UNC_path_taint = $ENV{PERL_FILE_PATH_UNC_TESTDIR};
+    skip "PERL_FILE_PATH_UNC_TESTDIR environment variable not set", 1
+        unless defined($UNC_path_taint);
+
+    my ($UNC_path) = ($UNC_path_taint =~ m{^([/\\]{2}\w+[/\\]\w+[/\\]\w+)$});
+    
+    skip "PERL_FILE_PATH_UNC_TESTDIR environment variable does not point to a directory", 1
+        unless -d $UNC_path;
+    
+    my $removed = rmtree($UNC_path);
+    cmp_ok($removed, '>', 0, "removed $removed entries from $UNC_path");
 }
 
 SKIP: {
@@ -452,8 +470,7 @@ cannot remove directory for [^:]+: .* at \1 line \2
 cannot unlink file for [^:]+: .* at \1 line \2
 cannot restore permissions to \d+ for [^:]+: .* at \1 line \2
 cannot make child directory read-write-exec for [^:]+: .* at \1 line \2
-cannot remove directory for [^:]+: .* at \1 line \2
-cannot restore permissions to \d+ for [^:]+: .* at \1 line \2},
+cannot remove directory for [^:]+: .* at \1 line \2},
             'rmtree with insufficient privileges'
         );
     }
@@ -528,7 +545,7 @@ SKIP: {
         unless -d catdir(qw(EXTRA 1));
 
     rmtree 'EXTRA', {safe => 0, error => \$error};
-    is( scalar(@$error), 11, 'seven deadly sins' ); # well there used to be 7
+    is( scalar(@$error), 10, 'seven deadly sins' ); # well there used to be 7
 
     rmtree 'EXTRA', {safe => 1, error => \$error};
     is( scalar(@$error), 9, 'safe is better' );
@@ -545,6 +562,27 @@ SKIP: {
     }
 }
 
-rmtree($tmp_base, {result => \$list} );
-is(ref($list), 'ARRAY', "received a final list of results");
-ok( !(-d $tmp_base), "test base directory gone" );
+SKIP: {
+    my $nr_tests = 6;
+    my $cwd = getcwd() or skip "failed to getcwd: $!", $nr_tests;
+    rmtree($tmp_base, {result => \$list} );
+    is(ref($list), 'ARRAY', "received a final list of results");
+    ok( !(-d $tmp_base), "test base directory gone" );
+    
+    my $p = getcwd();
+    my $x = "x$$";
+    my $xx = $x . "x";
+    
+    # setup
+    ok(mkpath($xx));
+    ok(chdir($xx));
+    END {
+         ok(chdir($p));
+         ok(rmtree($xx));
+    }
+    
+    # create and delete directory
+    my $px = catdir($p, $x);
+    ok(mkpath($px));
+    ok(rmtree($px), "rmtree");     # fails in File-Path-2.07
+}
