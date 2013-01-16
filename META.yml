@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               File-Path
-version:            2.08
+version:            2.09
 abstract:           Create or remove directory trees
 author:
     - David Landgren
@@ -19,7 +19,7 @@ no_index:
     directory:
         - t
         - inc
-generated_by:       ExtUtils::MakeMaker version 6.54
+generated_by:       ExtUtils::MakeMaker version 6.56
 meta-spec:
     url:      http://module-build.sourceforge.net/META-spec-v1.4.html
     version:  1.4
